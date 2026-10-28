@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { childSessionsQueryKey, type ChildSessionInfo } from "@/hooks/useChildSessions";
+import type { ClaudeQuestionOption } from "@/lib/askUserQuestion";
 import { BlockStream } from "@/lib/blockStream";
 import { buildBubbles, type RenderItem } from "@/lib/renderItems";
 import { parseEventLines } from "@/lib/sse";
@@ -1431,9 +1432,15 @@ describe("ApprovalCard — AskUserQuestion form (parsed from content_preview)", 
     expect(screen.getByTestId("ask-user-question-submit").hasAttribute("disabled")).toBe(false);
   });
 
-  it("shows the first option preview while pending, then follows the selection", () => {
-    // Claude's picker shows the focused option's preview and starts on the
-    // first option, so a pending card shows one preview without a click.
+  const twoPane = {
+    label: "Two-pane",
+    description: "Side-by-side",
+    preview: "[editor] | [output]",
+  };
+  const single = { label: "Single", description: "One pane", preview: "[editor only]" };
+  const keepCurrent = { label: "Keep current", description: "No change" };
+
+  function renderLayoutQuestion(options: ClaudeQuestionOption[], multiSelect = false) {
     render(
       <ApprovalCard
         elicitationId="elic_preview"
@@ -1444,45 +1451,56 @@ describe("ApprovalCard — AskUserQuestion form (parsed from content_preview)", 
         requestedSchema={{}}
         status="pending"
         response={null}
-        askUserQuestion={{
-          questions: [
-            {
-              question: "Layout?",
-              header: "",
-              options: [
-                { label: "Keep current", description: "No change" },
-                {
-                  label: "Two-pane",
-                  description: "Side-by-side",
-                  preview: "[editor] | [output]",
-                },
-                { label: "Single", description: "One pane", preview: "[editor only]" },
-              ],
-              multiSelect: false,
-            },
-          ],
-        }}
+        askUserQuestion={{ questions: [{ question: "Layout?", header: "", options, multiSelect }] }}
       />,
     );
+  }
 
-    const pending = screen.getByTestId("ask-user-question-previews");
-    expect(pending.textContent).toContain("Two-pane");
-    expect(pending.textContent).toContain("[editor] | [output]");
-    expect(pending.textContent).not.toContain("[editor only]");
+  const previewText = () => screen.queryByTestId("ask-user-question-previews")?.textContent ?? null;
+
+  it("shows the first option preview while pending, then follows the selection", () => {
+    // Claude's single-select picker previews its focused option and starts on the first one.
+    renderLayoutQuestion([twoPane, single, keepCurrent]);
+
+    expect(previewText()).toContain("Preview: Two-pane");
+    expect(previewText()).toContain("[editor] | [output]");
+    expect(previewText()).not.toContain("[editor only]");
+    for (const radio of screen.getAllByRole("radio")) {
+      expect((radio as HTMLInputElement).checked).toBe(false);
+    }
+    expect(screen.getByTestId("ask-user-question-submit").hasAttribute("disabled")).toBe(true);
 
     // Description is concatenated into the label text by the DOM
     // so a literal ``getByLabelText("Single")`` doesn't match;
     // a regex picks out the label by its prefix.
     fireEvent.click(screen.getByLabelText(/Single/));
-    const selected = screen.getByTestId("ask-user-question-previews");
-    expect(selected.textContent).toContain("[editor only]");
-    expect(selected.textContent).not.toContain("[editor] | [output]");
+    expect(previewText()).toContain("Preview: Single");
+    expect(previewText()).toContain("[editor only]");
+    expect(previewText()).not.toContain("[editor] | [output]");
 
     fireEvent.click(screen.getByLabelText(/Keep current/));
-    expect(screen.queryByTestId("ask-user-question-previews")).toBeNull();
+    expect(previewText()).toBeNull();
 
     fireEvent.click(screen.getByTestId("ask-user-question-custom-toggle"));
-    expect(screen.queryByTestId("ask-user-question-previews")).toBeNull();
+    expect(previewText()).toBeNull();
+  });
+
+  it("shows no pending preview when the first option has none", () => {
+    renderLayoutQuestion([keepCurrent, twoPane, single]);
+
+    expect(previewText()).toBeNull();
+  });
+
+  it("shows multi-select previews only for checked options", () => {
+    renderLayoutQuestion([twoPane, single, keepCurrent], true);
+    expect(previewText()).toBeNull();
+
+    fireEvent.click(screen.getByLabelText(/Single/));
+    expect(previewText()).toContain("[editor only]");
+    expect(previewText()).not.toContain("[editor] | [output]");
+
+    fireEvent.click(screen.getByLabelText(/Single/));
+    expect(previewText()).toBeNull();
   });
 
   it("renders 'Submitted' with the answer summary in the responded state", () => {

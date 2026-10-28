@@ -183,12 +183,13 @@ export function AskUserQuestionForm({ questions, onSubmit, onReject }: AskUserQu
         selections[currentKey]
       ? [selections[currentKey] as string]
       : [];
-  const optionsWithPreview = current.options.filter((opt) => opt.preview);
-  // Before any choice, show the first preview, as Claude's picker starts on its first option.
-  const nothingChosen = selectedLabels.length === 0 && !customSelected[currentKey];
-  const previewsToShow = nothingChosen
-    ? optionsWithPreview.slice(0, 1)
-    : optionsWithPreview.filter((opt) => selectedLabels.includes(opt.label));
+  // Claude's single-select picker previews its focused option and starts on the first one.
+  const nothingChosen =
+    !current.multiSelect && selectedLabels.length === 0 && !customSelected[currentKey];
+  const previewCandidates = nothingChosen
+    ? current.options.slice(0, 1)
+    : current.options.filter((opt) => selectedLabels.includes(opt.label));
+  const previewsToShow = previewCandidates.filter((opt) => opt.preview);
 
   const allowCustomInput = current.isOther !== false;
   const customRowId = `${currentKey}__custom`;
