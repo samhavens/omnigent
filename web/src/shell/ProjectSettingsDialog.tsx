@@ -100,9 +100,7 @@ export function ProjectSettingsDialog({
   const loadFailed = projectId !== null && isError;
   const updateConfig = useUpdateProjectConfig();
   const hosts = useHosts();
-  // Pin the stored default agent into discovery so an already-configured
-  // session-scoped agent (archived / paginated out of the scan) still
-  // resolves here — matching what the composer's prefill will see.
+  // Pins resolve saved IDs on older servers; current catalogs hide legacy IDs.
   const { data: agents } = useAvailableAgents({
     pinnedAgentIds: stored?.agent_id != null ? [stored.agent_id] : [],
   });
@@ -261,7 +259,7 @@ export function ProjectSettingsDialog({
   const harnessEntries = useMemo(() => agentList.filter(isNativeCodingAgent), [agentList]);
   const agentEntries = useMemo(() => agentList.filter((a) => !isNativeCodingAgent(a)), [agentList]);
   const selectedAgent = agentList.find((a) => a.id === agentId) ?? null;
-  const agentLabel = selectedAgent ? selectedAgent.display_name : "No default";
+  const agentLabel = selectedAgent?.display_name ?? (agentId ? "Agent unavailable" : "No default");
   // Model default is offered for harnesses whose create call carries a model
   // override — the declared modelPicker capability, plus Codex, whose picker
   // is host-resolved rather than capability-flagged (mirrors the composer's
