@@ -12199,8 +12199,8 @@ def _create_session_from_bundle(
     """
     Validate, store, and persist a bundled session request.
 
-    All uploads update the uploader's owner/name identity, including children.
-    Sessions already using that agent receive the revision on their next turn.
+    All uploads share the uploader's owner/name identity. Children reuse identical
+    files or conflict; explicit top-level uploads update existing sessions.
 
     :param conversation_store: Store that owns the atomic
         conversation-plus-agent transaction.
@@ -12283,6 +12283,7 @@ def _create_session_from_bundle(
             owner=created_by,
             spec=spec,
             bundle_bytes=bundle_bytes,
+            replace_existing=metadata.parent_session_id is None,
         )
         if agent is not None:
             return _persist_session_for_uploaded_agent(
