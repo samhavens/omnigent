@@ -1556,6 +1556,23 @@ export function AgentHarnessPicker({
   const selectedEntry = [...harnessEntries, ...agentEntries].find(
     (agent) => agent.id === effectiveAgentId,
   );
+  const duplicateAgentNames = useMemo(() => {
+    const seen = new Set<string>();
+    const duplicates = new Set<string>();
+    for (const agent of agentEntries) {
+      if (seen.has(agent.name)) duplicates.add(agent.name);
+      seen.add(agent.name);
+    }
+    return duplicates;
+  }, [agentEntries]);
+  const entryLabel = (agent: AvailableAgent) =>
+    duplicateAgentNames.has(agent.name)
+      ? `${agent.display_name} (${agent.mine ? "yours" : "server"})`
+      : agent.display_name;
+  const selectedLabel =
+    !autoHarnessActive && selectedEntry && duplicateAgentNames.has(selectedEntry.name)
+      ? entryLabel(selectedEntry)
+      : agentLabel;
   const selectedReadiness = harnessReadinessOnHost(selectedEntry?.harness, host);
   const selectedUnavailable =
     selectedEntry != null && !selectedReadiness.selectable && selectedReadiness.fallbackRelevant;
@@ -1585,15 +1602,15 @@ export function AgentHarnessPicker({
     )
     .join(", ");
   const triggerAccessibleName = [
-    hasAgents ? agentLabel : "No agents",
+    hasAgents ? selectedLabel : "No agents",
     selectedUnavailable ? "unavailable" : triggerAccessibleDetails,
   ]
     .filter(Boolean)
     .join(", ");
   const triggerText = triggerSdk
-    ? agentLabel
+    ? selectedLabel
     : visibleModelText ||
-      (triggerModel === undefined ? (hasAgents ? agentLabel : "No agents") : "");
+      (triggerModel === undefined ? (hasAgents ? selectedLabel : "No agents") : "");
   const triggerSecondaryText = triggerSdk
     ? compactModelTriggerLabel(triggerSdk.value)
     : visibleEffortText;
@@ -1680,16 +1697,6 @@ export function AgentHarnessPicker({
     setOpen(true);
   }, [openNonce, effectiveAgentId, hasSelectedConfig, isMobile, open]);
 
-  const duplicateAgentNames = useMemo(() => {
-    const seen = new Set<string>();
-    const duplicates = new Set<string>();
-    for (const agent of agentEntries) {
-      if (seen.has(agent.name)) duplicates.add(agent.name);
-      seen.add(agent.name);
-    }
-    return duplicates;
-  }, [agentEntries]);
-
   const renderEntry = (agent: AvailableAgent): ReactNode => {
     const active = !autoHarnessActive && agent.id === effectiveAgentId;
     const blurb = AGENT_PICKER_DESCRIPTIONS[agent.name];
@@ -1733,11 +1740,7 @@ export function AgentHarnessPicker({
         }}
         testId={`new-chat-landing-agent-${agent.id}`}
         icon={<ComposerAgentIcon agent={agent} />}
-        label={
-          duplicateAgentNames.has(agent.name)
-            ? `${agent.display_name} (${agent.mine ? "yours" : "server"})`
-            : agent.display_name
-        }
+        label={entryLabel(agent)}
         summary={summary}
         description={blurb}
         active={active}
