@@ -101,7 +101,11 @@ export function ProjectSettingsDialog({
   const updateConfig = useUpdateProjectConfig();
   const hosts = useHosts();
   // Pins resolve saved IDs on older servers; current catalogs hide legacy IDs.
-  const { data: agents } = useAvailableAgents({
+  const {
+    data: agents,
+    isPlaceholderData: agentsArePartial,
+    isError: agentsError,
+  } = useAvailableAgents({
     pinnedAgentIds: stored?.agent_id != null ? [stored.agent_id] : [],
   });
   const info = useServerInfo();
@@ -259,7 +263,12 @@ export function ProjectSettingsDialog({
   const harnessEntries = useMemo(() => agentList.filter(isNativeCodingAgent), [agentList]);
   const agentEntries = useMemo(() => agentList.filter((a) => !isNativeCodingAgent(a)), [agentList]);
   const selectedAgent = agentList.find((a) => a.id === agentId) ?? null;
-  const agentLabel = selectedAgent?.display_name ?? (agentId ? "Agent unavailable" : "No default");
+  let agentLabel = selectedAgent?.display_name ?? "No default";
+  if (agentId && !selectedAgent) {
+    agentLabel = "Agent unavailable";
+    if (agents === undefined || agentsArePartial) agentLabel = "Loading agent…";
+    if (agentsError) agentLabel = "Agent list unavailable";
+  }
   // Model default is offered for harnesses whose create call carries a model
   // override — the declared modelPicker capability, plus Codex, whose picker
   // is host-resolved rather than capability-flagged (mirrors the composer's
